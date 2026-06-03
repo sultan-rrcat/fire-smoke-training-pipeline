@@ -1,0 +1,4 @@
+/results/*
+*.log
+.git_local
+.git_github
