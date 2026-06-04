@@ -26,12 +26,14 @@ FIRE_SMOKE_CLASS_IDS    = (0, 1) # class 0 = fire, class 1 = smoke; class 2 = ot
 # ==============================================================================
 #  LOGGING SETUP
 # ==============================================================================
+LOG_DIR = "logs"
+os.makedirs(LOG_DIR, exist_ok=True)
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("inplace_pipeline.log", encoding="utf-8"),
+        logging.FileHandler(os.path.join(LOG_DIR, "cleaner.log"), encoding="utf-8"),
         logging.StreamHandler(sys.stdout),
     ],
 )
@@ -169,7 +171,7 @@ def run_inplace_cleaning(base_dir: Path) -> bool:
             img_path.unlink(missing_ok=True)
             label_path.unlink(missing_ok=True)
 
-    logger.info("\n" + "=" * 45)
+    logger.info("=" * 45)
     logger.info("🧹 STAGE 1: IN-PLACE CLEANING AUDIT")
     logger.info("=" * 45)
     logger.info(f" Total images checked           : {total}")
@@ -179,7 +181,7 @@ def run_inplace_cleaning(base_dir: Path) -> bool:
     logger.info(f"    Too small / bad aspect ratio: {stats['dropped_size']}")
     logger.info(f"    Corrupt / unreadable        : {stats['dropped_corrupt']}")
     logger.info(f"    Zero-byte files             : {stats['dropped_zero_byte']}")
-    logger.info("=" * 45 + "\n")
+    logger.info("=" * 45)
 
     return stats["passed"] > 0
 
@@ -280,7 +282,7 @@ def run_inplace_curation(base_dir: Path):
         "names: ['fire', 'smoke']\n"
     )
 
-    logger.info("\n" + "=" * 45)
+    logger.info("=" * 45)
     logger.info("🥇 STAGE 2: DATASET CURATION COMPLETE")
     logger.info("=" * 45)
     logger.info(f" Annotated images (fire/smoke)  : {total_annotated}")
@@ -289,7 +291,7 @@ def run_inplace_curation(base_dir: Path):
     logger.info(f" 'Class 2' annotations deleted  : {dropped_class2}")
     if discarded_bgs > 0:
         logger.info(f" Excess backgrounds DELETED     : {discarded_bgs}")
-    logger.info("=" * 45 + "\n")
+    logger.info("=" * 45)
 
 
 # ==============================================================================
@@ -306,7 +308,7 @@ if __name__ == "__main__":
             "Modifies a dataset directory DIRECTLY by removing corruptions, \n"
             "deleting duplicates, stripping unwanted classes, and trimming backgrounds.\n\n"
             "EXAMPLES:\n"
-            "  python inplace_cleaner.py --dataset-dir D:\\FIRE-SMOKE-DATASET\n"
+            "  python cleaner.py --dataset-dir D:\\FIRE-SMOKE-DATASET\n"
         )
     )
     

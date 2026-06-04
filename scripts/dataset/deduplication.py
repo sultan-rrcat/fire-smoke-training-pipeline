@@ -30,12 +30,13 @@ ADD_CHUNK_SIZE = 50_000
 # =========================================================
 # LOGGING
 # =========================================================
-
+LOG_DIR = "logs"
+os.makedirs(LOG_DIR, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("inplace_dedup.log", encoding="utf-8"),
+        logging.FileHandler(os.path.join(LOG_DIR, "deduplication.log"), encoding="utf-8"),
         logging.StreamHandler(sys.stdout),
     ],
 )
@@ -273,6 +274,8 @@ def main():
             "=======================================================================\n"
             "Uses DINOv2 and FAISS to find and delete near-duplicate images directly\n"
             "from your dataset directories.\n"
+            "Example:\n\n"
+            "python scripts/dataset/deduplication.py --dataset-dir /home2/testdev/sultan/fire-smoke/datasets/semi-gold/ --threshold 0.90 --batch-size 64\n"
         )
     )
     
@@ -309,7 +312,7 @@ def main():
         if not split_dir.exists():
             continue
 
-        logger.info("\n" + "=" * 50)
+        logger.info("=" * 50)
         logger.info(f"PROCESSING SPLIT: {split.upper()}")
         logger.info("=" * 50)
 
@@ -344,7 +347,7 @@ def main():
 
     total_kept = total_initial - total_dropped
 
-    logger.info("\n" + "=" * 60)
+    logger.info("=" * 60)
     logger.info(" IN-PLACE DEDUPLICATION REPORT")
     logger.info("=" * 60)
     logger.info(f" Initial Images : {total_initial}")

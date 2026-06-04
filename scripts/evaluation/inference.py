@@ -12,13 +12,13 @@ from ultralytics import YOLO
 # ==============================================================================
 #  LOGGING SETUP
 # ==============================================================================
-
+LOG_DIR = "logs"
 current_time = datetime.now().strftime('%Y%m%d_%H%M%S')
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler(f"inference_{current_time}.log", encoding="utf-8"),
+        logging.FileHandler(os.path.join(LOG_DIR,f"inference_{current_time}.log"), encoding="utf-8"),
         logging.StreamHandler(sys.stdout),
     ],
 )
@@ -183,11 +183,15 @@ def run_quadrant_inference(model, args, video_path, output_dir):
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
-        description="Unified Enterprise Inference Execution Pipeline - Standard vs. Quadrant Slicing Modalities."
+        description=(
+                "Unified Enterprise Inference Execution Pipeline - Standard vs. Quadrant Slicing Modalities.\n"
+                "Example:\n"
+                'python scripts/evaluation/inference.py --trained-weights "/home2/testdev/sultan/fire-smoke-training-pipeline/results/FS-TRAIN01-2/weights/best.pt" --source "/home2/testdev/sultan/fire-smoke/datasets/videos/samples/part1/bucket11.mp4" --results-dir /home2/testdev/sultan/fire-smoke-training-pipeline/results/\n'
+        )
     )
     
     # Core parameters
-    parser.add_argument("--weights", type=str, required=True, help="(REQUIRED) Path to tracking model file (.pt, .onnx, or .engine)")
+    parser.add_argument("--trained-weights", type=str, required=True, help="(REQUIRED) Path to object detection model file (.pt, .onnx, or .engine)")
     parser.add_argument("--source", type=str, required=True, help="(REQUIRED) Path to input video file target (.mp4, .avi)")
     parser.add_argument("--results-dir", type=str, required=True, help="(REQUIRED) Destination directory for target data footprints")
     
@@ -212,8 +216,8 @@ def main():
         
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.info(f"Initializing tracking architecture model instance from {Path(args.weights).name}...")
-    model = YOLO(args.weights, task="detect")
+    logger.info(f"Initializing objection detection model instance from {Path(args.trained_weights).name}...")
+    model = YOLO(args.trained_weights, task="detect")
 
     # Routing core workflow conditional branches
     if args.split_frame:

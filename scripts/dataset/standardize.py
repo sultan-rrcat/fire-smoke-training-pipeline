@@ -8,12 +8,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # ==============================================================================
 #  LOGGING SETUP
 # ==============================================================================
-
+LOG_DIR = "logs"
+os.makedirs(LOG_DIR, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("standardize.log", encoding='utf-8'),
+        logging.FileHandler(os.path.join(LOG_DIR, "standardize.log"), encoding='utf-8'),
         logging.StreamHandler(sys.stdout)
     ]
 )
@@ -210,7 +211,7 @@ def run_standardization(base_dir: Path, mapping: dict, class_names: list):
     # ==========================================
     # FINAL REPORT
     # ==========================================
-    logger.info("\n" + "="*50)
+    logger.info("="*50)
     logger.info("🎯 DATASET STANDARDIZATION COMPLETE")
     logger.info("="*50)
     logger.info(f" Total Images Evaluated   : {stats['total_images']}")
@@ -221,7 +222,7 @@ def run_standardization(base_dir: Path, mapping: dict, class_names: list):
     logger.info(f" Unmapped Objects Dropped : {stats['unmapped_objects_dropped']}")
     if stats["failed_files"] > 0:
         logger.warning(f" Failed Files Skipped     : {stats['failed_files']}")
-    logger.info("="*50 + "\n")
+    logger.info("="*50)
 
 
 # ==============================================================================

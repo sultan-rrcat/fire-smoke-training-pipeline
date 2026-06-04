@@ -11,12 +11,13 @@ from ultralytics import YOLO
 # ==============================================================================
 #  LOGGING SETUP
 # ==============================================================================
+LOG_DIR = "logs"
 current_time = datetime.now().strftime('%Y%m%d_%H%M%S')
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler(f"benchmark_{current_time}.log", encoding="utf-8"),
+        logging.FileHandler(os.path.join(LOG_DIR,f"benchmark_{current_time}.log"), encoding="utf-8"),
         logging.StreamHandler(sys.stdout),
     ],
 )
@@ -79,7 +80,7 @@ def run_benchmark(args):
             yaml_path = Path(data_yaml)
             dataset_name = yaml_path.parent.name if yaml_path.exists() else "Unknown"
 
-            logger.info("\n" + "=" * 60)
+            logger.info("=" * 60)
             logger.info(f" 📊 EVALUATING DATASET: {dataset_name}")
             logger.info("=" * 60)
 
@@ -105,7 +106,7 @@ def run_benchmark(args):
     # -------------------------------------------------
     # 2. SPEED BENCHMARKING (CPU & GPU)
     # -------------------------------------------------
-    logger.info("\n" + "=" * 60)
+    logger.info("=" * 60)
     logger.info(" ⚡ SPEED BENCHMARKS (Raw Network Inference)")
     logger.info("=" * 60)
 
@@ -128,7 +129,7 @@ def run_benchmark(args):
     else:
         logger.warning("CUDA not available. Skipping GPU benchmark.")
 
-    logger.info("\n" + "=" * 60)
+    logger.info("=" * 60)
     logger.info("Benchmark completed successfully.")
 
 

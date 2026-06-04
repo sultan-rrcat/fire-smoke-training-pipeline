@@ -1,154 +1,351 @@
 # 🔥 Fire & Smoke Detection Training & Deployment Pipeline
 
-[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/)
-[![Framework](https://img.shields.io/badge/Framework-YOLOv26-orange.svg)](https://github.com/ultralytics/ultralytics)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](#license)
+An end-to-end dataset engineering, quality assurance, training, evaluation, and deployment framework for **Fire & Smoke Detection using YOLOv26**.
 
-An end-to-end dataset engineering, quality assurance, training, evaluation, and production deployment framework optimized for Fire & Smoke Detection using **YOLOv26**.
+This repository provides a complete workflow for transforming raw datasets into deployment-ready fire and smoke detection models through automated dataset preparation, semantic deduplication, model training, benchmarking, and hardware-optimized deployment.
 
-This repository bridges the gap between raw web-scraped data and high-performance, edge-deployable inference solutions. It features robust pipelines for data cleaning, semantic deduplication via DINOv2 + FAISS, full/split-frame matrix inference, and production hardware export tools (ONNX & TensorRT).
+> [!NOTE]
+> This repository does **not** include datasets or trained weights.
+> Users are expected to prepare their own datasets and train models using the provided pipeline. Refer to the documentation under `docs/` for the complete workflow.
+
+---
+
+## 🎯 Repository Philosophy
+
+Most computer vision repositories focus primarily on model training. This repository emphasizes the complete machine learning lifecycle:
+
+1. Dataset Quality
+2. Dataset Diversity
+3. Reproducible Experiments
+4. Deployment Readiness
+
+The goal is to help users build robust fire and smoke detection systems using their own datasets rather than relying on pre-packaged data.
+
+---
 
 ## 🚀 Core Features
 
-### 📊 Dataset Engineering & QA
-* **Standardization:** Automated class remapping, bounding-box normalization, and dynamic training-ready YAML generator tracking.
-* **Automated Cleaning:** Outlier and anomaly detection including structural corruption purging, tiny bounding box exclusion, extreme aspect ratio pruning, and automatic background null-label balancing.
-* **Semantic Deduplication:** Feature extraction utilizing **DINOv2** combined with an **HNSW index via FAISS** to eliminate near-duplicate frames from video-extracted frames.
+### 📊 Dataset Engineering & Quality Assurance
 
-### 🏋️ Training & Advanced Evaluation
-* **Unified Training:** Flexible script parsing featuring autonomous single/multi-GPU routing or clean fallback configurations to CPU hardware execution.
-* **Comprehensive Benchmarking:** Direct accuracy assessment metrics (`mAP50`, `mAP50-95`, Precision, Recall) paired side-by-side with localized device inference latency benchmarks (FPS).
+* Dataset standardization and class remapping
+* Automated YAML generation
+* Background image support
+* Annotation validation and visualization
+* Corruption detection and removal
+* Extreme aspect ratio filtering
+* Tiny object filtering
+* Background balancing
 
-### 📦 Optimized Deployment
-* **Hardware Compiler Export:** Standard CLI target compilation allowing seamless conversions into optimized **ONNX** runtimes or high-throughput **NVIDIA TensorRT (`.engine`)** formats.
-* **Quadrant Split-and-Merge Pipeline:** Includes an advanced tiling mode that breaks video frames down into a `2×2` grid matrix for localized small-scale plume analysis before stitching bboxes back to native video scales.
+**Semantic Deduplication**
+Near-duplicate image removal powered by DINOv2 feature extraction, FAISS similarity search, and HNSW indexing. This significantly improves dataset diversity while reducing training redundancy.
 
-## 🔧 Installation & Environment Setup
+### 🏋️ Model Training
+
+* YOLOv26 training pipeline
+* Automatic CPU / GPU detection (Single-GPU and Multi-GPU support)
+* Resume training support
+* Deterministic experiment execution
+* Domain-specific augmentation strategies
+* Automated dataset integrity verification
+
+### 📈 Evaluation & Benchmarking
+
+* mAP@50 and mAP@50-95
+* Precision & Recall
+* CPU & GPU latency benchmarking
+* FPS measurement
+* Cross-dataset evaluation support
+
+### 📦 Deployment
+
+* PyTorch deployment, ONNX export, and TensorRT export
+* Standard video inference
+* Quadrant split-frame inference
+* Production deployment validation
+
+**Split-Frame Inference:** A specialized deployment mode that divides frames into a `2×2` grid before inference and merges the results afterward. This yields improved small smoke detection, better distant-object detection, and higher effective inference resolution.
+
+---
+
+## 🤖 Supported Models
+
+| Model | Purpose |
+| --- | --- |
+| **YOLOv26n** | Lightweight deployment and faster inference |
+| **YOLOv26s** | Higher accuracy deployment |
+
+*Additional YOLOv26 variants can be integrated through the training pipeline.*
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+* **Python:** 3.9+
+* **Hardware:** GPU with CUDA support and the latest drivers installed
+* **Knowledge:** Basic understanding of Exploratory Data Analysis (EDA)
+* **Data:** Your dataset must follow the standard YOLO annotation format
+
+### 🏢 Organization Setup
+
+Before cloning the repository, ensure Git access has been configured according to organizational standards.
+
+➡️ **[AADF Gitea — Team Setup & Usage Guide](http://10.10.30.65:3000/AADF/rip-platform/wiki/AADF-Gitea-%E2%80%94-Team-Setup-%26-Usage-Guide)**
+
+---
+
+### 1. Clone Repository
 
 ```bash
 git clone http://10.10.30.65:3000/trainee-ai-ml/fire-smoke-training-pipeline.git
 cd fire-smoke-training-pipeline
 
+```
+
+### 2. Create Virtual Environment
+
+**Linux / macOS**
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+
+```
+
+**Windows (PowerShell)**
+
+```powershell
+python -m venv venv
+venv\Scripts\Activate.ps1
+
+```
+
+> [!NOTE]
+> **Kshitij Nodes:** If you are operating on Kshitij nodes, you may need to activate a base Conda environment first to ensure `python3` is installed and accessible.
+
+### 3. Setup Proxy
+
+If you are operating behind the corporate firewall, configure your proxy settings before installing dependencies.
+
+**Linux / macOS**
+
+```bash
+export HTTP_PROXY="http://username:password@10.31.31.10:5128"
+export HTTPS_PROXY="http://username:password@10.31.31.10:5128"
+
+```
+
+**Windows (PowerShell)**
+
+```powershell
+$env:HTTP_PROXY="http://username:password@10.31.31.10:5128"
+$env:HTTPS_PROXY="http://username:password@10.31.31.10:5128"
+
+```
+
+### 4. Install Dependencies
+
+Because NVIDIA distributes TensorRT differently depending on the operating system and cluster environment, please run the installation command that matches your current setup.
+
+**Option A: Local Workstation (Windows / Linux)**
+If you are running this pipeline locally on a modern Windows or Linux machine, install the latest native TensorRT packages:
+
+```bash
+pip install tensorrt
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 pip install -r requirements.txt
+
 ```
 
-## 🛠️ Step-by-Step Production Workflow
-
-### 1. Dataset Preparation & Validation
-
-📖 **Documentation:** [`docs/dataset-preparation.md`](docs/dataset-preparation.md)
-
-Review dataset structure requirements, class mappings, annotation formatting rules, and quality assurance procedures before processing data.
+**Option B: Kshitij Cluster (HPC Nodes)**
+If you are operating on the Kshitij cluster, you must force the installation of the legacy `8.6.1` libraries directly from the NVIDIA index to maintain compatibility with the cluster's specific CUDA drivers:
 
 ```bash
-python scripts/dataset/standardize.py \
-  --source /path/to/raw \
-  --output /path/to/dataset
+pip install --extra-index-url https://pypi.nvidia.com tensorrt-libs==8.6.1 tensorrt-bindings==8.6.1 tensorrt==8.6.1
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+pip install -r requirements.txt
 
-python scripts/dataset/cleaner.py \
-  --data /path/to/dataset/data.yaml
+```
 
-python scripts/dataset/deduplication.py \
-  --data /path/to/dataset/data.yaml \
-  --threshold 0.85
+> **Note:** `requirements-kshitij.txt` and `requirements-win.txt` are included as examples of known working environments used during development. They are provided for reference and debugging purposes.
+
+---
+
+## 📚 Documentation
+
+| Guide | Description |
+| --- | --- |
+| [architecture.md](docs/architecture.md) | System architecture and data flow |
+| [dataset-preparation.md](docs/dataset-preparation.md) | Dataset engineering and validation |
+| [training-guide.md](docs/training-guide.md) | Training workflow and hyperparameters |
+| [evaluation-guide.md](docs/evaluation-guide.md) | Performance analysis and benchmarking |
+| [deployment-guide.md](docs/deployment-guide.md) | Export and deployment workflows |
+| [troubleshooting.md](docs/troubleshooting.md) | FAQ and issue resolution |
+
+---
+
+## 🛠️ Standard Workflow
+
+> [!TIP]
+> Run any script with the `-h` or `--help` argument to view a complete list of available features and parameters.
+
+### Step 1 — Dataset Preparation
+
+📖 **Documentation:** [docs/dataset-preparation.md](docs/dataset-preparation.md)
+
+Prepare, standardize, clean, and validate your dataset.
+
+```bash
+python scripts/dataset/standardize.py --dataset-dir /path/to/dataset
+
+python scripts/dataset/cleaner.py --dataset-dir /path/to/dataset
+
+python scripts/dataset/deduplication.py --dataset-dir /path/to/dataset --threshold 0.9 --batch-size 64
+
+```
+
+Before proceeding to training, verify your dataset quality and class distributions:
+
+```bash
+python scripts/dataset/eda_stats.py --dataset-dir /path/to/dataset
+
+```
+
+### Step 2 — Train Model
+
+📖 **Documentation:** [docs/training-guide.md](docs/training-guide.md)
+
+```bash
+python scripts/training/train.py --weights yolov26n.pt --data data.yaml --imgsz 640 --epochs 100 --device 0 --results-dir path/to/result --name YOLOv26n-v1
+```
+
+### Step 3 — Evaluate Performance
+
+📖 **Documentation:** [docs/evaluation-guide.md](docs/evaluation-guide.md)
+
+> [!IMPORTANT]
+> Before running this script, ensure the paths defined in your `data.yaml` correctly match the location of your finalized dataset.
+
+```bash
+python scripts/evaluation/benchmark.py --trained-weights results/yolov26n/best.pt --data data.yaml
+
+```
+
+### Step 4 — Export Deployment Artifacts
+
+📖 **Documentation:** [docs/deployment-guide.md](docs/deployment-guide.md)
+
+```bash
+python scripts/deployment/export.py --trained-weights results/yolov26n/best.pt --formats onnx tensorrt --imgsz 640 --half --device 0
+```
+
+### Step 5 — Run Inference
+
+📖 **Documentation:** [docs/deployment-guide.md](docs/deployment-guide.md)
+
+**Standard Inference**
+
+```bash
+python scripts/evaluation/inference.py --weights models/yolov26n/best.engine --source test.mp4 --results-dir result/
+
+```
+
+**Split-Frame Inference**
+
+```bash
+python scripts/evaluation/inference.py --weights models/yolov26n/best.engine --source test.mp4 --results-dir result/ --split-frame
+
 ```
 
 ---
 
-### 2. Model Training
+## 🏗️ Pipeline Overview
 
-📖 **Documentation:** [`docs/training-guide.md`](docs/training-guide.md)
+```text
+Raw Dataset
+      │
+      ▼
+Standardization ──► Cleaning ──► Semantic Deduplication ──► Dataset Validation
+                                                                  │
+                                                                  ▼
+Inference ◄── Export ◄── Benchmarking ◄── Training ◄──────────────┘
 
-Review training configurations, hardware recommendations, hyperparameter tuning strategies, checkpoint management, and resume workflows.
-
-```bash
-python scripts/training/train.py \
-  --weights yolov26n.pt \
-  --data data.yaml \
-  --imgsz 640 \
-  --epochs 100 \
-  --device 0
 ```
 
 ---
 
-### 3. Evaluation & Benchmarking
+## 📂 Repository Structure
 
-📖 **Documentation:** [`docs/evaluation-guide.md`](docs/evaluation-guide.md)
+```text
+fire-smoke-training-pipeline/
+├── docs/
+│   ├── architecture.md
+│   ├── dataset-preparation.md
+│   ├── training-guide.md
+│   ├── evaluation-guide.md
+│   ├── deployment-guide.md
+│   └── troubleshooting.md
+├── scripts/
+│   ├── dataset/
+│   ├── training/
+│   ├── evaluation/
+│   └── deployment/
+├── models/
+├── logs/
+├── results/
+├── requirements.txt
+└── README.md
 
-Understand performance metrics, benchmark methodology, latency measurements, precision/recall interpretation, and deployment readiness criteria.
-
-```bash
-python scripts/evaluation/benchmark.py \
-  --weights models/yolov26n/best.pt \
-  --data data.yaml
 ```
 
 ---
-
-### 4. Model Export & Deployment
-
-📖 **Documentation:** [`docs/deployment-guide.md`](docs/deployment-guide.md)
-
-Review ONNX export requirements, TensorRT compilation considerations, device compatibility, and production deployment recommendations.
-
-```bash
-python scripts/deployment/export.py \
-  --trained-weights models/yolov26n/best.pt \
-  --formats onnx tensorrt \
-  --imgsz 640 \
-  --half \
-  --device 0
-```
-
----
-
-### 5. Inference
-
-📖 **Documentation:** [`docs/deployment-guide.md`](docs/deployment-guide.md)
-
-Run inference using exported models in either standard or split-frame mode.
-
-```bash
-# Standard Inference
-python scripts/deployment/inference.py \
-  --weights models/yolov26n/best.engine \
-  --source test.mp4 \
-  --results-dir result/
-
-# Split-Frame Inference
-python scripts/deployment/inference.py \
-  --weights models/yolov26n/best.engine \
-  --source test.mp4 \
-  --results-dir result/ \
-  --split-frame
-```
-
----
-
-### Need Help?
-
-📖 **Architecture Overview:** [`docs/architecture.md`](docs/architecture.md)
-
-Understand repository design, component relationships, data flow, and system architecture.
-
-📖 **Troubleshooting Guide:** [`docs/troubleshooting.md`](docs/troubleshooting.md)
-
-Common errors, debugging procedures, dependency conflicts, export failures, and deployment fixes.
 
 ## 📋 Best Practices
 
-- Prioritize Recall for fire-safety applications.
-- Compile TensorRT engines on the same GPU architecture used in production.
+* **Prioritize recall** for fire-safety applications to minimize missed detections.
+* **Validate annotations** visually before initiating large-scale training.
+* **Remove semantic duplicates** to ensure the model learns diverse features rather than memorizing redundant frames.
+* **Benchmark** every exported model to ensure latency requirements are met.
+* **Archive** experiment logs and benchmark reports for traceability.
+* **Build TensorRT engines natively** on the exact target hardware to avoid compatibility issues.
 
-## 📄 License
+---
 
-MIT License
+## 📈 Results
 
-Copyright (c) 2026 Computer Vision Architecture Pipelines
+Benchmark results and deployment metrics should be recorded and versioned for each experiment. Example directory structure:
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software.
+```text
+results/
+├── FS-YOLOv26n-v1/
+├── FS-YOLOv26n-v2/
+├── FS-YOLOv26s-v1/
+└── benchmarks/
+
+```
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome. Areas of interest include:
+
+* Dataset engineering
+* Training improvements
+* Benchmarking enhancements
+* Deployment optimizations
+* Documentation improvements
+* CI/CD integration
+
+---
+
+## 🙏 Acknowledgements
+
+Built using: **YOLOv26**, **PyTorch**, **Ultralytics**, **DINOv2**, **FAISS**, and **OpenCV**.
+
+---
+
+## 📌 Final Note
+
+High-performing fire and smoke detection systems are built on high-quality datasets. This repository prioritizes dataset quality, reproducible experimentation, and deployment readiness to help teams build reliable, real-world solutions.

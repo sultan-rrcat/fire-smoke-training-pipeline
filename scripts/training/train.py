@@ -71,7 +71,7 @@ def print_dataset_metadata(yaml_path: Path):
         with open(yaml_path, 'r') as f:
             data = yaml.safe_load(f)
         
-        logger.info("\n" + "="*50)
+        logger.info("="*50)
         logger.info(" 📊 DATASET INVENTORY")
         logger.info("="*50)
 
@@ -94,7 +94,7 @@ def print_dataset_metadata(yaml_path: Path):
                     logger.warning(f" [{split.upper()}] PATH MISSING: {full_path}")
             
             logger.info(f" Total {split} images: {total_images}\n")
-        logger.info("="*50 + "\n")
+        logger.info("="*50)
     except Exception as e:
         logger.error(f"Failed to read metadata: {e}")
         
@@ -198,7 +198,7 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, default="auto", help="CUDA device IDs or 'auto' (Default: 'auto')")
     
     # Flags
-    parser.add_argument("--debug", action="store_true", help="Run a rapid 2-epoch test on 1% of data to verify pipeline.")
+    parser.add_argument("--debug", action="store_true", help="Run a rapid 2-epoch test on 1%% of data to verify pipeline.")
     parser.add_argument("--resume", action="store_true", help="Force resume from checkpoint")
 
     args = parser.parse_args()

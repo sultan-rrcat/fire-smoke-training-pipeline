@@ -1,353 +1,141 @@
-# Dataset Preparation Guide
+# 📊 Dataset Preparation Guide
 
-# Overview
+## Overview
 
-This guide explains how to prepare a custom dataset for training using the Fire & Smoke Detection Training Pipeline.
-
-By the end of this guide, you will be able to:
-
-* Organize a YOLO dataset correctly
-* Standardize class labels
-* Clean low-quality samples
-* Remove duplicate images
-* Validate dataset integrity
-* Visualize annotations
-* Generate a training-ready dataset
+This guide explains how to prepare a custom dataset for training using the Fire & Smoke Detection Training Pipeline. By the end of this guide, you will be able to organize a YOLO dataset correctly, standardize class labels, clean low-quality samples, remove duplicate images, and validate dataset integrity before training.
 
 ---
 
-# Supported Dataset Format
+## 📁 Supported Dataset Format
 
-The pipeline expects datasets in standard YOLO Detection format.
+The pipeline expects datasets to be in the standard YOLO Detection format.
 
-## Directory Structure
+### Directory Structure
 
 ```text
 dataset/
-
 ├── train/
 │   ├── images/
 │   └── labels/
-│
 ├── valid/
 │   ├── images/
 │   └── labels/
-│
 ├── test/
 │   ├── images/
 │   └── labels/
-│
 └── data.yaml
+
 ```
 
----
+### YOLO Label Format
 
-# YOLO Label Format
+Each image must have a corresponding `.txt` file with the exact same name (e.g., `image001.jpg` and `image001.txt`).
 
-Each image must have a corresponding text file.
+Inside the text file, annotations must follow this format:
+`<class_id> <x_center> <y_center> <width> <height>`
 
-Example:
-
-```text
-image001.jpg
-image001.txt
-```
-
-Label format:
-
-```text
-<class_id> <x_center> <y_center> <width> <height>
-```
-
-Example:
+*Example (`image001.txt`):*
 
 ```text
 0 0.542 0.421 0.210 0.315
 1 0.317 0.654 0.180 0.240
+
 ```
 
-All coordinates must be normalized between:
+> [!NOTE]
+> All bounding box coordinates must be normalized between `0.0` and `1.0`.
 
-```text
-0.0 → 1.0
-```
+### Class Definitions
+
+The training pipeline strictly relies on the following standard mapping:
+
+* **0:** Fire
+* **1:** Smoke
+
+### Background Images (Negative Samples)
+
+Background images (images with no fire or smoke) are intentionally supported and highly recommended to reduce false positives during deployment.
+
+To include a background image, provide the image file alongside a **completely empty** `.txt` label file.
 
 ---
 
-# Class Definitions
+## 🛠️ Step-by-Step Preparation Workflow
 
-The training pipeline uses:
+### Step 1 — Download or Collect Data
 
-| Class ID | Class Name |
-| -------- | ---------- |
-| 0        | Fire       |
-| 1        | Smoke      |
+Gather your raw data from CCTV footage, public datasets, or Roboflow exports. Before proceeding through the pipeline, perform a manual spot-check to ensure images are reasonably clear and labels exist.
 
-Example:
+### Step 2 — Standardize Dataset
 
-```text
-0 -> Fire
-1 -> Smoke
-```
+Different datasets often use conflicting class IDs (e.g., Dataset A uses `0` for Fire, but Dataset B uses `1` for Fire).
 
----
-
-# Background Images
-
-Background images are intentionally supported.
-
-A background image:
-
-```text
-image.jpg
-image.txt
-```
-
-Where:
-
-```text
-image.txt
-```
-
-is completely empty.
-
-Example:
-
-```text
-```
-
-(empty file)
-
-These samples help reduce false positives during deployment.
-
----
-
-# Step 1 — Download or Collect Data
-
-Sources may include:
-
-* CCTV footage
-* Public datasets
-* Roboflow exports
-* Kaggle datasets
-* Internal datasets
-
-Before proceeding:
-
-✅ Images should be clear
-
-✅ Labels should be reviewed
-
-✅ Corrupt files should be removed
-
----
-
-# Step 2 — Standardize Dataset
-
-Different datasets often use different class IDs.
-
-Examples:
-
-Dataset A
-
-```text
-0 = Fire
-1 = Smoke
-```
-
-Dataset B
-
-```text
-0 = Smoke
-1 = Fire
-```
-
-Dataset C
-
-```text
-0 = Fire
-1 = Other
-2 = Smoke
-```
-
-To unify labels:
+Use the standardization script to unify all labels to our standard (`0: Fire`, `1: Smoke`):
 
 ```bash
 python scripts/dataset/standardize.py \
     --dataset-dir datasets/my_dataset \
     --map 0:0 1:2 2:1 \
     --classes fire smoke other
+
 ```
 
-Example mapping:
+*In the `--map` example above: Old Class `0` → New Class `0`, Old Class `1` → New Class `2`, Old Class `2` → New Class `1`.*
 
-```text
-Old Class 0 → New Class 0
-Old Class 1 → New Class 2
-Old Class 2 → New Class 1
-```
+### Step 3 — Clean Dataset
 
-The standardization stage can:
+> [!WARNING]
+> **Destructive Action:** The cleaning script performs in-place modifications. Always create a backup of your dataset before running this step.
 
-* Remap classes
-* Remove unwanted classes
-* Generate missing labels
-* Remove orphan labels
-* Create a clean data.yaml
-
----
-
-# Step 3 — Clean Dataset
-
-Run:
+Run the cleaner to automatically remove corrupt images, zero-byte files, extreme aspect ratios, and exact duplicates:
 
 ```bash
 python scripts/dataset/cleaner.py \
     --dataset-dir datasets/my_dataset
+
 ```
 
-Cleaning removes:
+### Step 4 — Remove Semantic Duplicates
 
-* Corrupt images
-* Unreadable files
-* Zero-byte files
-* Extreme aspect ratios
-* Very small images
-* Exact duplicates
+Video datasets frequently contain adjacent frames that are visually identical, which leads to model overfitting. Exact duplicate removal is not enough.
 
-The script performs in-place cleaning.
-
-## Important
-
-Create a backup before running cleaning operations.
-
----
-
-# Step 4 — Remove Semantic Duplicates
-
-Exact duplicate removal is not enough.
-
-Video datasets frequently contain:
-
-```text
-Frame 001
-Frame 002
-Frame 003
-Frame 004
-```
-
-which are visually almost identical.
-
-Run:
+Run semantic deduplication, powered by DINOv2 embeddings and FAISS similarity search:
 
 ```bash
 python scripts/dataset/deduplication.py \
     --dataset-dir datasets/my_dataset
+
 ```
 
-Default similarity threshold:
+*(The default similarity threshold is `0.985`. This significantly improves generalization and speeds up training).*
 
-```text
-0.985
-```
+### Step 5 — Analyze Dataset
 
-Technology used:
-
-* DINOv2 embeddings
-* FAISS similarity search
-* HNSW indexing
-* Union-Find clustering
-
-Benefits:
-
-* Better generalization
-* Less overfitting
-* Faster training
-* Smaller datasets
-
----
-
-# Step 5 — Analyze Dataset
-
-Run:
+Generate statistics to ensure your dataset is balanced and healthy:
 
 ```bash
 python scripts/dataset/eda_stats.py \
     --dataset-dir datasets/my_dataset
+
 ```
 
-Example output:
+**Recommended Checks:** Ensure that **Missing Labels**, **Missing Images**, and **Malformed Annotations** all report `0`.
 
-```text
-Images
-Labels
-Background Images
-Class Distribution
-Missing Labels
-Missing Images
-```
+### Step 6 — Visualize Labels
 
-Recommended checks:
-
-### Missing Labels
-
-Target:
-
-```text
-0
-```
-
-### Missing Images
-
-Target:
-
-```text
-0
-```
-
-### Malformed Annotations
-
-Target:
-
-```text
-0
-```
-
----
-
-# Step 6 — Visualize Labels
-
-Always inspect samples before training.
-
-Run:
+Always inspect samples before dedicating hours to training. The visualization tool draws bounding boxes and class names on a random sample of images to help you spot incorrect boxes, wrong class IDs, or tiny labels.
 
 ```bash
 python scripts/dataset/visualize.py \
     --image-dir datasets/my_dataset/train/images \
     --label-dir datasets/my_dataset/train/labels \
     --classes fire smoke
+
 ```
 
-This tool:
+### Step 7 — Verify `data.yaml`
 
-* Draws bounding boxes
-* Displays class names
-* Randomly samples images
-* Helps identify annotation issues
-
-Examples of issues:
-
-* Incorrect boxes
-* Wrong class IDs
-* Missing labels
-* Oversized boxes
-* Tiny boxes
-
----
-
-# Step 7 — Verify data.yaml
-
-Example:
+Ensure your `data.yaml` is correctly formatted and points to the right directories:
 
 ```yaml
 path: datasets/my_dataset
@@ -357,129 +145,47 @@ val: valid/images
 test: test/images
 
 nc: 2
-
 names:
-  - fire
-  - smoke
+  0: fire
+  1: smoke
+
 ```
-
-Verify:
-
-* All paths exist
-* Class count matches labels
-* Class names are correct
 
 ---
 
-# Recommended Dataset Quality Checklist
+## ✅ Recommended Dataset Quality Checklist
 
-Before training:
+Before moving to the training phase, verify the following:
 
-## Dataset Structure
-
-* [ ] train/images exists
-* [ ] train/labels exists
-* [ ] valid/images exists
-* [ ] valid/labels exists
-* [ ] test/images exists
-* [ ] test/labels exists
-
-## Labels
-
-* [ ] YOLO format
-* [ ] Correct class IDs
-* [ ] No malformed lines
-* [ ] No orphan labels
-
-## Images
-
-* [ ] No corrupt files
-* [ ] No tiny images
-* [ ] No extreme aspect ratios
-
-## Data Quality
-
-* [ ] Semantic duplicates removed
-* [ ] Class distribution reviewed
-* [ ] Background images included
-* [ ] Random samples visualized
+* [ ] **Structure:** `train`, `valid`, and `test` directories all contain `images/` and `labels/` folders.
+* [ ] **Annotations:** All labels follow standard YOLO formatting with normalized coordinates.
+* [ ] **Class Mapping:** `0` is strictly Fire, `1` is strictly Smoke. No orphan labels exist.
+* [ ] **Cleanliness:** Corrupt files, tiny images, and unreadable labels have been removed.
+* [ ] **Diversity:** Semantic duplicates have been removed, and empty background images are included.
+* [ ] **Validation:** A random sample of annotations has been visually inspected.
 
 ---
 
-# Recommended Dataset Sizes
+## 📈 Recommended Dataset Sizes
 
-| Use Case          | Images  |
-| ----------------- | ------- |
-| Prototype         | 1,000+  |
-| Small Project     | 5,000+  |
-| Production Model  | 20,000+ |
-| Large Scale Model | 50,000+ |
+| Use Case | Minimum Images |
+| --- | --- |
+| **Prototype** | 1,000+ |
+| **Small Project** | 5,000+ |
+| **Production Model** | 20,000+ |
+| **Large Scale Model** | 50,000+ |
 
-More important than size:
-
-* Label quality
-* Dataset diversity
-* Realistic scenarios
+> [!NOTE]
+> Label quality, dataset diversity, and realistic deployment scenarios are vastly more important than sheer image volume.
 
 ---
 
-# Common Mistakes
+## ⚠️ Common Mistakes
 
-## Missing Empty Labels
-
-Wrong:
-
-```text
-image.jpg
-```
-
-Correct:
-
-```text
-image.jpg
-image.txt
-```
-
-(empty label file)
+* **Missing Empty Labels:** Including a background `.jpg` without its corresponding empty `.txt` file will cause the pipeline to drop the image or throw an error.
+* **Wrong Class Mapping:** Proceeding with `0 = Smoke` when the pipeline expects `0 = Fire`. Always standardize first.
+* **Skipping Visualization:** Many training failures originate from malformed bounding boxes. Do not skip Step 6.
 
 ---
 
-## Wrong Class Mapping
-
-Wrong:
-
-```text
-0 = Smoke
-```
-
-when model expects:
-
-```text
-0 = Fire
-```
-
-Always standardize first.
-
----
-
-## Skipping Visualization
-
-Many training failures originate from:
-
-* Incorrect annotations
-* Class mapping mistakes
-* Dataset export errors
-
-Always visualize samples before training.
-
----
-
-# Next Step
-
-Once your dataset passes validation, continue to:
-
-```text
-docs/training-guide.md
-```
-
-to begin training a YOLO fire and smoke detection model.
+*Next Step: Once your dataset passes validation, continue to the [Training Guide](training-guide.md) to begin training your model.*

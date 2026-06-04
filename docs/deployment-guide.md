@@ -1,611 +1,228 @@
-# Deployment Guide
+# 📦 Deployment Guide
 
-# Overview
+## Overview
 
-Training a model is only half the journey.
+Training a model is only half the journey. This guide explains how to export your trained YOLOv26 fire and smoke detection models, convert them into high-performance deployment runtimes, execute video inference pipelines, and benchmark production performance.
 
-This guide explains how to:
+By the end of this guide, you will be able to confidently deploy your model across multiple hardware ecosystems using **PyTorch**, **ONNX**, or **NVIDIA TensorRT**.
 
-* Export trained models
-* Convert models for deployment
-* Run inference on videos
-* Benchmark deployment performance
-* Choose the correct runtime
-* Prepare for production deployment
-
-By the end of this guide, you will be able to deploy your Fire & Smoke Detection model using PyTorch, ONNX, or TensorRT.
+**Deployment Workflow:**
+`Train Model ──► best.pt Checkpoint ──► Optimization/Export (ONNX/TensorRT) ──► Inference Validation ──► Production Deployment`
 
 ---
 
-# Deployment Workflow
+## 🏗️ Supported Deployment Runtimes
 
-```text
-Train Model
-     │
-     ▼
-best.pt
-     │
-     ▼
-Export
-     │
-     ├── ONNX
-     │
-     └── TensorRT
-     │
-     ▼
-Inference Validation
-     │
-     ▼
-Production Deployment
-```
+Choosing the correct deployment format depends heavily on your target hardware architecture and latency requirements:
 
----
+### 1. PyTorch (`.pt`)
 
-# Supported Deployment Formats
+* **Best For:** Research, rapid prototyping, and model validation.
+* **Advantages:** Native framework format; requires zero conversion or compilation steps.
+* **Disadvantages:** High runtime overhead, heavy dependencies, and slower execution speeds.
 
-| Format   | Extension | Purpose                   |
-| -------- | --------- | ------------------------- |
-| PyTorch  | .pt       | Research & Development    |
-| ONNX     | .onnx     | Cross-platform Deployment |
-| TensorRT | .engine   | NVIDIA GPU Deployment     |
+### 2. ONNX (`.onnx`)
+
+* **Best For:** Cross-platform deployment, CPU-based servers, and edge computing devices.
+* **Advantages:** Framework-agnostic, portable, and supported by a wide variety of hardware accelerators (via ONNX Runtime).
+* **Disadvantages:** Requires managing runtime versions; generally slower than hardware-specific compiled engines.
+
+### 3. NVIDIA TensorRT (`.engine`)
+
+* **Best For:** Production NVIDIA GPUs, real-time streams, and ultra-low latency requirements.
+* **Advantages:** Maximum throughput (FPS), hardware-level optimizations, and significantly lower VRAM usage.
+* **Disadvantages:** Strictly hardware-dependent (must be compiled on the target GPU architecture) and locked into the NVIDIA ecosystem.
 
 ---
 
-# Deployment Strategy
+## 🚀 Exporting Models for Production
 
-## PyTorch
-
-Best for:
-
-* Research
-* Validation
-* Experimentation
-
-Advantages:
-
-* Easiest to use
-* Native training format
-* No conversion required
-
-Disadvantages:
-
-* Larger runtime overhead
-* Slower than TensorRT
-
----
-
-## ONNX
-
-Best for:
-
-* Edge devices
-* Production APIs
-* Cross-platform deployment
-
-Advantages:
-
-* Framework independent
-* Widely supported
-* Portable
-
-Disadvantages:
-
-* Requires ONNX Runtime
-* Usually slower than TensorRT
-
----
-
-## TensorRT
-
-Best for:
-
-* NVIDIA GPUs
-* Real-time inference
-* Production environments
-
-Advantages:
-
-* Lowest latency
-* Highest FPS
-* Optimized execution
-
-Disadvantages:
-
-* Hardware dependent
-* Requires NVIDIA ecosystem
-
----
-
-# Exporting Models
-
-The export pipeline converts a trained PyTorch model into deployment-ready formats.
-
-Script:
+The export pipeline converts your trained PyTorch checkpoint into optimized serialization formats. All operations are handled via the unified export script:
 
 ```bash
 python scripts/deployment/export.py
+
 ```
 
----
+### Standard Export Configurations
 
-# Export ONNX
-
-Example:
+**Convert to ONNX Format**
 
 ```bash
 python scripts/deployment/export.py \
     --trained-weights results/FS-baseline/weights/best.pt \
     --formats onnx
+
 ```
 
-Output:
-
-```text
-best.onnx
-```
-
----
-
-# Export TensorRT
-
-Example:
+**Convert to TensorRT Format**
 
 ```bash
 python scripts/deployment/export.py \
     --trained-weights results/FS-baseline/weights/best.pt \
     --formats tensorrt
+
 ```
 
-Output:
-
-```text
-best.engine
-```
-
----
-
-# Export Multiple Formats
-
-Recommended:
+**Simultaneous Multi-Format Export (Recommended)**
 
 ```bash
 python scripts/deployment/export.py \
     --trained-weights results/FS-baseline/weights/best.pt \
     --formats onnx tensorrt
+
 ```
 
-Outputs:
+### Advanced Optimization Flags
 
-```text
-best.onnx
-best.engine
-```
-
----
-
-# FP16 Optimization
-
-FP16 significantly improves inference speed on supported GPUs.
-
-Enable:
-
+* **FP16 Half-Precision Optimization (`--half`):** Highly recommended for TensorRT deployment on modern GPUs. It drops precision down to 16-bit floating points, slashing memory usage and drastically increasing FPS with negligible accuracy loss.
 ```bash
 python scripts/deployment/export.py \
     --trained-weights results/FS-baseline/weights/best.pt \
     --formats tensorrt \
     --half
+
 ```
 
-Benefits:
 
-* Lower memory usage
-* Higher FPS
-* Faster inference
+* **INT8 Quantization (`--int8`):** Compresses the model down to 8-bit integers for extreme throughput. *Note: INT8 can lead to slight drops in accuracy; always run a validation benchmark after choosing this option.*
+* **Dynamic Input Shapes (`--dynamic`):** Enables the model to accept variable input dimensions rather than locking it to a static shape. *Note: This adds flexibility but may slightly reduce maximum inference optimization.*
+
+### Choosing an Input Resolution
+
+The baseline model defaults to an image size of `640`. Choosing the right input resolution forces a direct trade-off between speed and accuracy:
+
+| Input Resolution | Primary Use Case | Trade-off Impact |
+| --- | --- | --- |
+| **640** | Standard real-time streams, edge hardware | Base performance, lowest latency |
+| **960** | Medium-range monitoring, early smoke detection | Balanced speed and accuracy |
+| **1280** | Long-range outdoor cameras, small smoke regions | High precision, requires capable GPU VRAM |
+| **1920** | High-altitude or industrial facility surveillance | Maximum detection coverage, high latency |
 
 ---
 
-# INT8 Quantization
+## 🎥 Running Validation Inference
 
-For maximum performance:
-
-```bash
-python scripts/deployment/export.py \
-    --trained-weights results/FS-baseline/weights/best.pt \
-    --formats tensorrt \
-    --int8
-```
-
-Benefits:
-
-* Smaller model size
-* Faster inference
-
-Potential tradeoff:
-
-```text
-Minor accuracy reduction
-```
-
-Always benchmark after quantization.
-
----
-
-# Dynamic Input Shapes
-
-Enable dynamic resolutions:
-
-```bash
-python scripts/deployment/export.py \
-    --trained-weights results/FS-baseline/weights/best.pt \
-    --formats onnx \
-    --dynamic
-```
-
-Benefits:
-
-```text
-Multiple input resolutions supported
-```
-
-Tradeoff:
-
-```text
-Slightly lower performance
-```
-
----
-
-# Choosing Input Resolution
-
-Common options:
-
-| Resolution | Use Case                 |
-| ---------- | ------------------------ |
-| 640        | Standard deployment      |
-| 960        | Improved smoke detection |
-| 1280       | Small smoke regions      |
-| 1920       | Maximum accuracy         |
-
-General rule:
-
-```text
-Higher Resolution
-      ↓
-Better Detection
-      ↓
-Higher Latency
-```
-
----
-
-# Running Inference
-
-The repository includes a deployment validation pipeline.
-
-Script:
+The repository includes an inference verification script to test your native or exported models on real media files.
 
 ```bash
 python scripts/deployment/inference.py
+
 ```
 
----
+### Core Inference Commands
 
-# Standard Video Inference
-
-Example:
+**Run Native PyTorch Inference**
 
 ```bash
 python scripts/deployment/inference.py \
     --weights results/FS-baseline/weights/best.pt \
     --source demo.mp4 \
     --results-dir deployment_results
+
 ```
 
-Pipeline:
-
-```text
-Video
-   │
-   ▼
-YOLO Inference
-   │
-   ▼
-Annotated Video
-```
-
----
-
-# ONNX Inference
-
-Example:
-
-```bash
-python scripts/deployment/inference.py \
-    --weights models/best.onnx \
-    --source demo.mp4 \
-    --results-dir deployment_results
-```
-
----
-
-# TensorRT Inference
-
-Example:
+**Run Optimized TensorRT Inference**
 
 ```bash
 python scripts/deployment/inference.py \
     --weights models/best.engine \
     --source demo.mp4 \
     --results-dir deployment_results
+
 ```
+
+### Primary Inference Flags
+
+* **Confidence Threshold (`--conf`):** Controls the detection sensitivity. Default is `0.50`. Lowering this value (e.g., `--conf 0.30`) increases **Recall** (catches more fire/smoke but raises false alarms). Raising it increases **Precision** (fewer false alarms but risks missing a small fire).
+* **Device Targeting (`--device`):** Explicitly run inference on CPU, a specific GPU, or allow automatic routing:
+```bash
+--device auto  # Automated routing
+--device 0     # Direct target GPU ID
+--device cpu   # Force fallback to CPU
+
+```
+
+
 
 ---
 
-# Confidence Threshold
+## 🧩 Advanced Quadrant Inference Mode
 
-Default:
-
-```text
-0.50
-```
-
-Adjust:
-
-```bash
---conf 0.30
-```
-
-Higher value:
-
-```text
-Fewer detections
-Higher precision
-```
-
-Lower value:
-
-```text
-More detections
-Higher recall
-```
-
-For fire safety systems:
-
-```text
-Prioritize recall
-```
-
----
-
-# Device Selection
-
-Automatic:
-
-```bash
---device auto
-```
-
-Specific GPU:
-
-```bash
---device 0
-```
-
-CPU:
-
-```bash
---device cpu
-```
-
----
-
-# Quadrant Inference Mode
-
-Small smoke regions are difficult to detect.
-
-To improve detection:
+Distant, small smoke plumes often slip under the detection threshold when an entire high-resolution frame is downscaled to `640x640`. To bypass this physical limitation, you can activate **Quadrant (Split-Frame) Inference Mode**:
 
 ```bash
 python scripts/deployment/inference.py \
-    --weights best.pt \
+    --weights models/best.engine \
     --source demo.mp4 \
     --results-dir deployment_results \
     --split-frame
+
 ```
 
----
+### Technical Workflow
 
-# How Quadrant Inference Works
+1. **Split:** The pipeline logically divides incoming video frames into a `2×2` grid (4 separate quadrant sub-frames).
+2. **Inference:** The model executes inference on each of the 4 quadrants independently.
+3. **Merge:** Bounding boxes are dynamically stitched back together, applying Non-Maximum Suppression (NMS) across the boundaries.
+4. **Output:** The combined high-resolution analytical video frame is saved.
 
-```text
-Original Frame
-       │
-       ▼
-Split Into 4 Regions
-       │
-       ▼
-Run Inference
-       │
-       ▼
-Merge Results
-       │
-       ▼
-Output Video
-```
-
-Benefits:
-
-* Better small-object detection
-* Improved distant smoke detection
-* Higher effective resolution
-
-Tradeoffs:
-
-* More processing
-* Lower FPS
-* Higher memory usage
+> [!TIP]
+> **Quadrant Trade-offs:** This mode significantly improves the detection of small, early-stage, or distant smoke plumes. However, because it runs inference four times per frame, throughput (FPS) will drop significantly, and memory consumption will increase.
 
 ---
 
-# Deployment Benchmarking
+## 📋 Standard Hardware Target Profiles
 
-Before production deployment, benchmark the exported model.
+Match your deployment pipeline to one of our verified target configurations:
 
-Example:
+### ⚙️ Development & Prototyping
 
-```bash
-python scripts/evaluation/benchmark.py \
-    --trained-weights best.pt
-```
+* **Format:** PyTorch (`.pt`)
+* **Resolution:** 640
+* **Device:** Local Workstation GPU
 
-Record:
+### ⚙️ Low-Power Edge Device
 
-* mAP@50
-* mAP@50-95
-* Precision
-* Recall
-* CPU Latency
-* GPU Latency
-* FPS
+* **Format:** ONNX (`.onnx`)
+* **Resolution:** 640
+* **Device:** Edge Accelerator (e.g., Intel OpenVINO, CPU Gateway)
 
----
+### ⚙️ Production NVIDIA Enterprise Server (High Throughput)
 
-# Recommended Deployment Profiles
+* **Format:** TensorRT (`.engine`)
+* **Resolution:** 640
+* **Precision Optimization:** FP16 (`--half`)
+* **Device:** Data Center GPU (e.g., NVIDIA T4 / A10)
 
-## Development
+### ⚙️ Long-Range Surveillance (Maximum Safety & Coverage)
 
-```text
-Format: PyTorch
-Resolution: 640
-Device: GPU
-```
+* **Format:** TensorRT (`.engine`)
+* **Resolution:** 1280
+* **Precision Optimization:** FP16 (`--half`)
+* **Execution:** Quadrant Mode (`--split-frame`)
 
 ---
 
-## Edge Device
+## ⚠️ Common Deployment Pitfalls
 
-```text
-Format: ONNX
-Resolution: 640
-Device: CPU / Edge Accelerator
-```
+> [!WARNING]
+> **Cross-Hardware TensorRT Failures:** TensorRT optimizations rely on hardware-specific compute capabilities. If you compile a `.engine` file on an RTX 3060 workstation and attempt to deploy it on an enterprise server Tesla T4 GPU, the runtime engine will crash. **Always build your TensorRT engines directly on the target deployment machine.**
 
----
-
-## Production NVIDIA Server
-
-```text
-Format: TensorRT
-Resolution: 640
-Precision: FP16
-Device: GPU
-```
+* **Exporting Without Validation:** Runtimes occasionally optimize models differently. Never ship an exported engine to production without running a validation benchmark sweep to ensure precision scales properly.
+* **Aggressive Confidence Thresholding:** Setting `--conf 0.90` inside a fire-safety system will suppress early, faint smoke wisps. Keep thresholds conservative to prioritize early notification.
+* **Neglecting Low-Light / Edge-Case Media Testing:** Ensure your validation includes diverse deployment conditions (e.g., night streams, fog, and internal camera lens flares).
 
 ---
 
-## Maximum Accuracy
+## ✅ Deployment Readiness Checklist
 
-```text
-Format: TensorRT
-Resolution: 1280
-Precision: FP16
-```
+Before making your system live, ensure your chosen model variant satisfies the following parameters:
 
-Best for:
-
-* Long-range cameras
-* Industrial sites
-* Large open environments
-
----
-
-# Deployment Checklist
-
-Before deployment:
-
-* [ ] Model evaluated on test set
-* [ ] Recall meets project requirements
-* [ ] Benchmark results recorded
-* [ ] ONNX export validated
-* [ ] TensorRT export validated
-* [ ] Inference tested on sample videos
-* [ ] Output videos reviewed manually
-* [ ] Deployment hardware verified
-* [ ] Logs archived
-
----
-
-# Production Recommendations
-
-For real-world fire detection systems:
-
-Prioritize:
-
-```text
-Recall
-      ↓
-Reliability
-      ↓
-Latency
-      ↓
-Precision
-```
-
-A slightly higher false alarm rate is generally preferable to missing a genuine fire event.
-
----
-
-# Common Deployment Mistakes
-
-## Exporting Without Benchmarking
-
-Always benchmark after export.
-
-Different runtimes may produce slightly different results.
-
----
-
-## Building TensorRT On Different Hardware
-
-TensorRT engines are often hardware-specific.
-
-Build on the target deployment machine whenever possible.
-
----
-
-## Using Extremely High Confidence Thresholds
-
-Example:
-
-```bash
---conf 0.90
-```
-
-This may suppress genuine fire detections.
-
----
-
-## Ignoring Small Smoke Testing
-
-Always validate:
-
-* Distant smoke
-* Small smoke plumes
-* Low-light scenes
-* Indoor environments
-* Outdoor environments
-
----
-
-# Next Steps
-
-Once deployment validation is complete, consider:
-
-* Live camera integration
-* RTSP stream processing
-* Alerting systems
-* Edge deployment
-* Cloud inference APIs
-* Automated incident reporting
-
-The exported model is now ready to be integrated into a complete fire and smoke monitoring system.
+* [ ] Evaluated against a distinct, out-of-sample testing split.
+* [ ] Recall performance complies with safety specifications.
+* [ ] TensorRT or ONNX engine was successfully compiled directly on the production host.
+* [ ] Exported inference accuracy was cross-checked with native framework outputs.
+* [ ] Processing throughput meets stream framerate requirements (e.g., >30 FPS).
+* [ ] Hand-validated via standard video or split-frame quadrant tests.
+* [ ] Logging, alert hooks, and metrics tracking pipelines are active and verified.

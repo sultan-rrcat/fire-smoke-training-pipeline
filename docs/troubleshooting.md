@@ -1,649 +1,131 @@
-# Troubleshooting Guide
+# 🛠️ Troubleshooting & FAQ Guide
 
-# Frequently Asked Questions (FAQ)
+## Overview
 
-This document covers the most common issues encountered while preparing datasets, training models, evaluating results, and deploying fire and smoke detection systems.
+This document covers the most common issues encountered while preparing datasets, training models, evaluating results, deploying systems, and managing Python environments.
 
----
-
-# Dataset Preparation
-
-## Q: The training script says "Dataset YAML not found". What should I do?
-
-### Symptoms
-
-```text
-Dataset YAML not found
-```
-
-### Solution
-
-Verify that:
-
-```text
-dataset/
-└── data.yaml
-```
-
-exists.
-
-Check your command:
-
-```bash
-python scripts/training/train.py \
-    --data datasets/my_dataset/data.yaml
-```
-
-Make sure the path is correct and accessible.
+Before opening an issue or escalating a ticket, please review this guide.
 
 ---
 
-## Q: Training starts but reports zero images.
+## 📦 Environment Setup & Dependencies
 
-### Symptoms
+**Q: Installation fails while building `pandas`, `scipy`, or other scientific packages.**
 
-```text
-Train images: 0
-Val images: 0
-```
+* **Symptoms:** Error messages like `Building wheel for scipy`, `OpenBLAS not found`, or `subprocess-exited-with-error`.
+* **Explanation:** `pip` attempts to build packages from source when a compatible precompiled wheel (`.whl`) is unavailable for your OS or Python version. Building these from source requires C/Fortran compilers and system libraries.
+* **Solution:** Upgrade your installation tools first: `pip install --upgrade pip setuptools wheel`. Ensure you are using a Python version that has official wheels available (typically Python 3.9 - 3.11).
 
-### Solution
+**Q: Dependency resolution fails with `ResolutionImpossible`.**
 
-Verify your dataset structure:
+* **Explanation:** Two packages require incompatible versions of the same underlying dependency (e.g., Package A requires `numpy < 2.0`, but Package B requires `numpy >= 2.0`).
+* **Solution:** Stick strictly to the provided `requirements.txt`. Do not manually upgrade scientific packages unless necessary.
 
-```text
-dataset/
+**Q: PyTorch installed successfully, but CUDA is not available.**
 
-├── train/
-│   └── images/
-│
-├── valid/
-│   └── images/
-│
-└── test/
-    └── images/
-```
+* **Symptoms:** `torch.cuda.is_available()` returns `False`.
+* **Explanation:** You likely installed the CPU-only version of PyTorch, or your NVIDIA drivers are mismatched with the installed PyTorch CUDA toolkit.
+* **Solution:** Verify your GPU is visible using `nvidia-smi`. Ensure you install PyTorch using the specific index URL provided in the main README (e.g., `--index-url https://download.pytorch.org/whl/cu121`).
 
-Also verify:
+**Q: Should I use Conda, `venv`, or both?**
 
-```yaml
-train: train/images
-val: valid/images
-test: test/images
-```
-
-inside `data.yaml`.
+* **Solution:** Use **one** environment manager. Do not nest a `venv` inside an active Conda environment, as this introduces severe path confusion and dependency inconsistencies. On standard Linux/Windows, use `venv`. On HPC nodes (like Kshitij), use Conda.
 
 ---
 
-## Q: Why are some images missing after running cleaner.py?
+## 📊 Dataset Preparation
 
-### Explanation
+**Q: The training script says "Dataset YAML not found".**
 
-The cleaner intentionally removes:
+* **Solution:** Verify that your `data.yaml` actually exists at the path you specified. Double-check your command line arguments for typos.
 
-* Corrupt images
-* Zero-byte files
-* Extreme aspect ratios
-* Tiny images
-* Exact duplicates
+**Q: Training starts but reports zero images found.**
 
-### Recommendation
+* **Solution:** Verify that your `data.yaml` correctly points to the `images/` directory, not just the root `train/` folder. Ensure your directory structure exactly matches the standard YOLO format.
 
-Review the generated log file before retraining.
+**Q: Why are some images missing after running `cleaner.py`?**
 
-Always create a backup before running:
+* **Explanation:** The cleaner automatically removes corrupt images, zero-byte files, extreme aspect ratios, and exact duplicates. This is expected behavior. Always check the generated log file to see exactly what was removed.
 
-```bash
-python scripts/dataset/cleaner.py
-```
+**Q: Why did `cleaner.py` remove my background images?**
 
----
+* **Explanation:** The pipeline maintains a target background ratio. Excess negative samples are pruned to keep the dataset balanced and prevent the model from biasing toward predicting "nothing".
 
-## Q: Why did cleaner.py remove my background images?
+**Q: Why do I have completely empty `.txt` label files?**
 
-### Explanation
+* **Explanation:** Empty `.txt` files represent background images (images with no fire or smoke). This is the correct, expected YOLO format. **Do not delete them.**
 
-The cleaning pipeline maintains a target background ratio.
+**Q: I have duplicates remaining after running `cleaner.py`.**
 
-Excess background images may be removed to keep the dataset balanced.
-
-### Recommendation
-
-Review:
-
-```python
-TARGET_BACKGROUND_RATIO
-```
-
-inside the cleaning configuration if customization is required.
+* **Explanation:** The cleaner only removes *exact* byte-for-byte duplicates. CCTV footage often contains hundreds of near-identical sequential frames.
+* **Solution:** Run the Semantic Deduplication script (`deduplication.py`) to remove visually similar frames using DINOv2 embeddings.
 
 ---
 
-## Q: Why do I have empty label files?
+## 🏋️ Training & GPU Usage
 
-### Explanation
+**Q: Training crashes with `CUDA out of memory`.**
 
-Empty label files represent background images.
+* **Solution:** Your GPU VRAM is full. Reduce your `--batch-size` (e.g., from 64 to 32) or decrease your input resolution (`--imgsz`).
 
-Example:
+**Q: Training is extremely slow.**
 
-```text
-image.jpg
-image.txt
-```
+* **Possible Causes:** You are accidentally training on the CPU, reading data from a slow HDD, or using an excessive number of data loader workers.
+* **Solution:** Ensure you pass `--device auto`, verify your data is on an SSD, and lower `--workers` if CPU bottlenecks occur.
 
-where:
+**Q: Why is training stuck at 0%?**
 
-```text
-```
+* **Solution:** This is often a data-loader deadlock. Try setting `--workers 0` in your training command. If it starts successfully, the issue is related to multi-processing on your specific OS.
 
-is intentionally empty.
+**Q: Can I stop training and continue later?**
 
-This is expected behavior.
-
-Do not delete these files.
+* **Solution:** Yes. Point your training script to the `last.pt` weights file and pass the `--resume` flag.
 
 ---
 
-## Q: My labels exist but objects are missing after standardization.
+## 📈 Evaluation & Metrics
 
-### Cause
+**Q: My mAP is very low. What should I check?**
 
-Class mappings may have removed those annotations.
+* **Solution:** Almost all low-mAP issues stem from the dataset. Verify your class mappings (`0=Fire`, `1=Smoke`), ensure annotations are normalized YOLO coordinates, and run `visualize.py` to physically look at your bounding boxes.
 
-Example:
+**Q: Training mAP is high, but validation mAP is low.**
 
-```bash
---map 0:0 1:1
-```
+* **Explanation:** Your model is overfitting (memorizing the training data).
+* **Solution:** Add more diverse data, include more background (empty) images, and run semantic deduplication to force the model to learn general features rather than identical frames.
 
-will discard any class not listed.
+**Q: Precision is high, but Recall is low.**
 
-### Solution
-
-Verify class mappings before running:
-
-```bash
-python scripts/dataset/standardize.py
-```
+* **Explanation:** The model is too conservative. It rarely triggers false alarms, but it frequently misses actual fires.
+* **Solution:** In fire safety, **Recall is paramount**. To fix this, you may need more diverse fire examples or a lower confidence threshold during inference.
 
 ---
 
-## Q: Why did standardize.py create new label files?
+## 📦 Export & Deployment
 
-### Explanation
+**Q: TensorRT export failed.**
 
-The script automatically creates empty labels for background images.
+* **Solution:** Verify that the TensorRT Python bindings are installed (`pip install tensorrt`). Ensure your CUDA version matches the installed TensorRT libraries.
 
-This ensures YOLO compatibility.
+**Q: Can I build a TensorRT engine on my laptop and deploy it on the server?**
 
----
+* **Solution:** Generally, no. TensorRT engines (`.engine` files) are heavily optimized for the specific GPU architecture they are compiled on. Always build the engine directly on the target deployment machine.
 
-## Q: Why are duplicate images still present after cleaning?
+**Q: Real-time inference is slower than the benchmark script reported.**
 
-### Explanation
+* **Explanation:** The `benchmark.py` script measures *raw model inference* using synthetic tensors. Real-world video inference (`inference.py`) includes overhead from video decoding (OpenCV), frame resizing, Non-Maximum Suppression (NMS), and rendering.
 
-The cleaner removes exact duplicates only.
+**Q: Small smoke regions are not being detected in deployment.**
 
-Example:
-
-```text
-Same file hash
-```
-
-Near-identical CCTV frames require semantic deduplication.
-
-Run:
-
-```bash
-python scripts/dataset/deduplication.py
-```
+* **Solution:** Try exporting your model at a higher resolution (e.g., `--imgsz 1280`) or utilize **Quadrant Inference Mode** (`--split-frame`) to process high-resolution patches independently.
 
 ---
 
-## Q: Deduplication removed too many images.
+## 🐛 Submitting a Bug Report
 
-### Cause
+If you have validated your dataset, reviewed the logs, and are still encountering an issue, please gather the following information before opening a ticket:
 
-Similarity threshold is too low.
-
-### Solution
-
-Increase threshold.
-
-Example:
-
-```bash
-python scripts/dataset/deduplication.py \
-    --threshold 0.99
-```
-
-Higher threshold = fewer removals.
-
----
-
-## Q: Deduplication is very slow.
-
-### Explanation
-
-Semantic deduplication uses:
-
-* DINOv2
-* FAISS
-* HNSW Search
-
-This is significantly more expensive than file-hash comparison.
-
-### Recommendation
-
-Use:
-
-* SSD storage
-* CUDA GPU
-* Smaller batch sizes if memory is limited
-
----
-
-## Q: How do I verify annotation quality?
-
-### Solution
-
-Visualize samples:
-
-```bash
-python scripts/dataset/visualize.py \
-    --image-dir train/images \
-    --label-dir train/labels \
-    --classes fire smoke
-```
-
-Inspect:
-
-* Missing boxes
-* Wrong labels
-* Incorrect class IDs
-* Extremely small boxes
-
----
-
-# Training
-
-## Q: Training crashes with CUDA Out Of Memory.
-
-### Symptoms
-
-```text
-CUDA out of memory
-```
-
-### Solutions
-
-Reduce batch size:
-
-```bash
---batch-size 32
-```
-
-Close other GPU-intensive applications.
-
----
-
-## Q: GPU is not being used.
-
-### Symptoms
-
-```text
-Training on CPU
-```
-
-### Check
-
-Verify CUDA:
-
-```bash
-nvidia-smi
-```
-
-Verify PyTorch:
-
-```python
-import torch
-
-print(torch.cuda.is_available())
-```
-
-Expected:
-
-```text
-True
-```
-
----
-
-## Q: Training is extremely slow.
-
-### Possible Causes
-
-* CPU training
-* HDD storage
-* Large image sizes
-* Excessive worker count
-
-### Recommendations
-
-Use:
-
-```bash
---device auto
-```
-
-Install CUDA-enabled PyTorch.
-
-Store datasets on SSD.
-
----
-
-## Q: Why is training stuck at 0%?
-
-### Possible Causes
-
-* Dataset path issues
-* Corrupted labels
-* Worker deadlocks
-* Network-mounted storage
-
-### Try
-
-```bash
---workers 0
-```
-
-If training starts, the issue is likely worker-related.
-
----
-
-## Q: Can I stop training and continue later?
-
-### Yes
-
-Resume using:
-
-```bash
-python scripts/training/train.py \
-    --weights results/FS-experiment/weights/last.pt \
-    --resume
-```
-
----
-
-## Q: Which metric matters most for fire detection?
-
-### Recommendation
-
-Prioritize:
-
-```text
-Recall
-```
-
-Reason:
-
-```text
-Missing a fire is generally worse than a false alarm.
-```
-
----
-
-# Evaluation
-
-## Q: My mAP is very low. What should I check?
-
-### Checklist
-
-* Verify labels
-* Verify class mappings
-* Remove duplicates
-* Inspect visualizations
-* Review class balance
-
-Most low-mAP issues originate from dataset quality.
-
----
-
-## Q: Training mAP is high but test mAP is low.
-
-### Cause
-
-Overfitting.
-
-### Solutions
-
-* Add more data
-* Increase diversity
-* Add backgrounds
-* Run semantic deduplication
-* Reduce training epochs
-
----
-
-## Q: Precision is high but recall is low.
-
-### Meaning
-
-The model is conservative.
-
-It avoids false alarms but misses fires.
-
-### Possible Fixes
-
-* More fire examples
-* Better augmentation
-* Larger training dataset
-
----
-
-## Q: Recall is high but precision is low.
-
-### Meaning
-
-The model detects most fires but produces many false alarms.
-
-### Possible Fixes
-
-* Add background images
-* Improve negative samples
-* Review annotation quality
-
----
-
-## Q: Why are benchmark results different on another machine?
-
-### Explanation
-
-Performance depends on:
-
-* GPU model
-* CUDA version
-* Drivers
-* CPU
-* RAM
-* Storage
-
-Always compare results using the same hardware configuration.
-
----
-
-# Export & Deployment
-
-## Q: ONNX export failed.
-
-### Check
-
-Verify:
-
-```bash
-pip install onnx onnxruntime
-```
-
-Also ensure:
-
-```text
-best.pt
-```
-
-exists.
-
----
-
-## Q: TensorRT export failed.
-
-### Common Causes
-
-* TensorRT not installed
-* CUDA mismatch
-* Unsupported GPU
-
-### Recommendation
-
-Verify:
-
-```bash
-nvidia-smi
-```
-
-and TensorRT installation.
-
----
-
-## Q: Can I build TensorRT on one machine and deploy on another?
-
-### Recommendation
-
-Build TensorRT engines on the target deployment machine whenever possible.
-
-TensorRT engines are often hardware-specific.
-
----
-
-## Q: Inference is slower than benchmark results.
-
-### Explanation
-
-Benchmarks measure:
-
-```text
-Raw model inference
-```
-
-Real deployment includes:
-
-* Video decoding
-* Frame resizing
-* Post-processing
-* Disk I/O
-* Rendering
-
-Actual FPS is usually lower.
-
----
-
-## Q: Small smoke regions are not detected.
-
-### Solutions
-
-Use:
-
-```bash
---imgsz 1280
-```
-
-or
-
-Use quadrant inference mode.
-
-Small objects benefit from larger effective resolution.
-
----
-
-## Q: Output video is not being saved.
-
-### Verify
-
-* Output directory exists
-* Write permissions are available
-* Disk space is sufficient
-
----
-
-# General Questions
-
-## Q: Which script should I run first?
-
-### Recommended Order
-
-```text
-standardize.py
-      ↓
-cleaner.py
-      ↓
-deduplication.py
-      ↓
-eda_stats.py
-      ↓
-visualize.py
-      ↓
-train.py
-      ↓
-benchmark.py
-      ↓
-export.py
-      ↓
-inference.py
-```
-
----
-
-## Q: Which logs should I keep?
-
-Recommended:
-
-```text
-logs/
-
-├── training logs
-├── benchmark logs
-├── export logs
-└── inference logs
-```
-
-Logs are invaluable when reproducing experiments.
-
----
-
-## Q: I found a bug. What information should I provide?
-
-Include:
-
-* Operating System
-* Python Version
-* CUDA Version
-* GPU Model
-* Full Command
-* Complete Error Traceback
-* Relevant Log Files
-
-This information dramatically reduces debugging time.
-
----
-
-# Still Need Help?
-
-Before opening an issue:
-
-* Run dataset validation
-* Visualize annotations
-* Review logs
-* Reproduce the issue with a minimal example
-
-Most issues can be resolved by validating dataset quality and configuration before training.
+1. **Environment:** OS, Python version, PyTorch version, CUDA version, and GPU model.
+2. **Command:** The exact command you ran.
+3. **Traceback:** The complete error output from the terminal.
+4. **Reproducibility:** A minimal set of steps required to reproduce the error.

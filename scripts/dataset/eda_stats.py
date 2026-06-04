@@ -172,8 +172,8 @@ if __name__ == "__main__":
             "=======================================================================\n"
             "Analyzes a YOLO dataset directory to provide file counts, class \n"
             "distributions, and validation of missing image/label pairs.\n\n"
-            "USAGE:\n"
-            "  python eda_yolo.py --dataset-dir D:\\FIRE-SMOKE-DATASET\\unified\n"
+            "Example:\n"
+            "python scripts/dataset/eda_stats.py --dataset-dir=/home2/testdev/sultan/fire-smoke/datasets/semi-gold/\n"
         )
     )
     

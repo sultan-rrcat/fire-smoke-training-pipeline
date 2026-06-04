@@ -1,4 +1,6 @@
-/results/*
+results/*
+!results/.gitkeep
 *.log
 .git_local
 .git_github
+venv

@@ -71,7 +71,11 @@ def run_export(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
-        description="Unified Production Export Utility for ONNX and TensorRT Runtimes."
+        description=(
+            "Unified Production Export Utility for ONNX and TensorRT Runtimes.\n"
+            "Example:\n"
+            'python scripts/deployment/export.py --trained-weights "/home2/testdev/sultan/fire-smoke-training-pipeline/results/FS-TRAIN01-2/weights/best.pt" --half\n'
+        )
     )
     
     # Required Arguments
