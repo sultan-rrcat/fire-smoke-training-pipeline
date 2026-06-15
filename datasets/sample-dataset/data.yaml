@@ -1,5 +1,8 @@
-path: C:\Users\trainee\Desktop\Projects\fire-smoke-training\datasets\sample-dataset
+path: C:\Users\offic\Documents\GitHub\fire-smoke-training-pipeline\datasets\sample-dataset
 train: train/images
 val: valid/images
 test: test/images
 nc: 2
+names:
+- fire
+- smoke

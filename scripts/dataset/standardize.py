@@ -4,6 +4,7 @@ import logging
 import yaml
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import os
 
 # ==============================================================================
 #  LOGGING SETUP
@@ -256,8 +257,8 @@ if __name__ == "__main__":
         help="(OPTIONAL) Remap rules in 'old:new' format (e.g., --map 0:0 1:2 2:1)."
     )
     parser.add_argument(
-        "--classes", type=str, nargs="+", default=[],
-        help="(OPTIONAL) Final class names for data.yaml (e.g., --classes fire smoke other)."
+        "--classes", type=str, nargs="+", required=True,
+        help="(REQUIRED) Final class names for data.yaml (e.g., --classes fire smoke other)."
     )
 
     args = parser.parse_args()

@@ -87,12 +87,6 @@ Near-duplicate image removal powered by DINOv2 feature extraction, FAISS similar
 * **Knowledge:** Basic understanding of Exploratory Data Analysis (EDA)
 * **Data:** Your dataset must follow the standard YOLO annotation format
 
-### 🏢 Organization Setup
-
-Before cloning the repository, ensure Git access has been configured according to organizational standards.
-
-➡️ **[AADF Gitea — Team Setup & Usage Guide](http://10.10.30.65:3000/AADF/rip-platform/wiki/AADF-Gitea-%E2%80%94-Team-Setup-%26-Usage-Guide)**
-
 ---
 
 ### 1. Clone Repository
@@ -121,35 +115,7 @@ venv\Scripts\Activate.ps1
 
 ```
 
-> [!NOTE]
-> **Kshitij Nodes:** If you are operating on Kshitij nodes, you may need to activate a base Conda environment first to ensure `python3` is installed and accessible.
-
-### 3. Setup Proxy
-
-If you are operating behind the corporate firewall, configure your proxy settings before installing dependencies.
-
-**Linux / macOS**
-
-```bash
-export HTTP_PROXY="http://username:password@10.31.31.10:5128"
-export HTTPS_PROXY="http://username:password@10.31.31.10:5128"
-
-```
-
-**Windows (PowerShell)**
-
-```powershell
-$env:HTTP_PROXY="http://username:password@10.31.31.10:5128"
-$env:HTTPS_PROXY="http://username:password@10.31.31.10:5128"
-
-```
-
-### 4. Install Dependencies
-
-Because NVIDIA distributes TensorRT differently depending on the operating system and cluster environment, please run the installation command that matches your current setup.
-
-**Option A: Local Workstation (Windows / Linux)**
-If you are running this pipeline locally on a modern Windows or Linux machine, install the latest native TensorRT packages:
+### 3. Install Dependencies
 
 ```bash
 pip install tensorrt
@@ -158,17 +124,7 @@ pip install -r requirements.txt
 
 ```
 
-**Option B: Kshitij Cluster (HPC Nodes)**
-If you are operating on the Kshitij cluster, you must force the installation of the legacy `8.6.1` libraries directly from the NVIDIA index to maintain compatibility with the cluster's specific CUDA drivers:
-
-```bash
-pip install --extra-index-url https://pypi.nvidia.com tensorrt-libs==8.6.1 tensorrt-bindings==8.6.1 tensorrt==8.6.1
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-pip install -r requirements.txt
-
-```
-
-> **Note:** `requirements-kshitij.txt` and `requirements-win.txt` are included as examples of known working environments used during development. They are provided for reference and debugging purposes.
+> **Note:** Install cuda compiled torch, torchvision and torchaudio based on your cuda version only.
 
 ---
 
@@ -197,18 +153,18 @@ pip install -r requirements.txt
 Prepare, standardize, clean, and validate your dataset.
 
 ```bash
-python scripts/dataset/standardize.py --dataset-dir /path/to/dataset
+python scripts/dataset/standardize.py --dataset-dir ./datasets/sample-dataset/
 
-python scripts/dataset/cleaner.py --dataset-dir /path/to/dataset
+python scripts/dataset/cleaner.py --dataset-dir ./datasets/sample-dataset/
 
-python scripts/dataset/deduplication.py --dataset-dir /path/to/dataset --threshold 0.9 --batch-size 64
+python scripts/dataset/deduplication.py --dataset-dir ./datasets/sample-dataset/ --threshold 0.9 --batch-size 64
 
 ```
 
 Before proceeding to training, verify your dataset quality and class distributions:
 
 ```bash
-python scripts/dataset/eda_stats.py --dataset-dir /path/to/dataset
+python scripts/dataset/eda_stats.py --dataset-dir ./datasets/sample-dataset/
 
 ```
 
@@ -217,7 +173,7 @@ python scripts/dataset/eda_stats.py --dataset-dir /path/to/dataset
 📖 **Documentation:** [docs/training-guide.md](docs/training-guide.md)
 
 ```bash
-python scripts/training/train.py --weights yolov26n.pt --data data.yaml --imgsz 640 --epochs 100 --device 0 --results-dir path/to/result --name YOLOv26n-v1
+python scripts/training/train.py --weights ./weights/yolov26n/yolov26n.pt --data ./datasets/sample-dataset/data.yaml --imgsz 640 --epochs 100 --device 0 --results-dir ./results --name YOLOv26n-v1 --debug
 ```
 
 ### Step 3 — Evaluate Performance
@@ -228,7 +184,7 @@ python scripts/training/train.py --weights yolov26n.pt --data data.yaml --imgsz 
 > Before running this script, ensure the paths defined in your `data.yaml` correctly match the location of your finalized dataset.
 
 ```bash
-python scripts/evaluation/benchmark.py --trained-weights results/yolov26n/best.pt --data data.yaml
+python scripts/evaluation/benchmark.py --trained-weights .\results\FS-YOLOv26n-v1\weights\best.pt --data datasets\sample-dataset\data.yaml
 
 ```
 

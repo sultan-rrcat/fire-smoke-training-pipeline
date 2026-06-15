@@ -6,7 +6,7 @@ import logging
 import argparse
 from pathlib import Path
 from datetime import datetime
-from ultralytics import YOLO
+from ultralytics import YOLO, settings
 
 # ==============================================================================
 #  LOGGING SETUP (Auto-creates directory)
@@ -125,11 +125,19 @@ def run_training_pipeline(args):
     # Determine hardware dynamically
     active_device = get_optimal_device(args.device)
 
+    # --- KEY FIX: Resolve absolute path and override global settings ---
+    results_dir_abs = Path(args.results_dir).resolve()
+    
+    # Override global Ultralytics settings to prevent prepending "runs/detect/"
+    settings.update({
+        "runs_dir": str(results_dir_abs)
+    })
+
     try:
         model = YOLO(args.weights)
         model.train(
             data=str(yaml_path),
-            project=args.results_dir,    # <-- ADD THIS LINE
+            project=str(results_dir_abs),    # Use absolute path here
             name=f"FS-{args.name}",
             resume=is_resume,
             seed=42,
@@ -148,12 +156,15 @@ def run_training_pipeline(args):
             **BASE_AUGMENTATIONS
         )
 
+        # --- KEY FIX: Log the actual save directory to verify ---
+        logger.info(f"Trainer save_dir = {model.trainer.save_dir}")
+
         logger.info(f"Training complete. Evaluating {args.name} on Test Split...")
         
         # Test split evaluation
         metrics = model.val(
             split='test',
-            project=args.results_dir,               
+            project=str(results_dir_abs),    # Use absolute path here           
             name=f"FS-{args.name}_Test_Eval"
         )
 
